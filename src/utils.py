@@ -5,6 +5,8 @@ import numpy as np
 import pandas as pd
 import dill
 from sklearn.metrics import r2_score
+from sklearn.model_selection import GridSearchCV
+
 
 
 from src.exception import CustomException
@@ -21,29 +23,45 @@ def save_object(file_path,obj):
     except Exception as e:
         raise CustomException(e, sys)
     
-def evaluate_models(X_train, y_train, X_test, y_test, models):
+def evaluate_models(X_train, y_train, X_test, y_test, models, param):
     try:
         report = {}
+        best_models={}
 
         for name, model in models.items():
-            # Train
-            model.fit(X_train, y_train)
+            params=param[name]
 
-            # Predict
-            y_train_pred = model.predict(X_train)
-            y_test_pred = model.predict(X_test)
+            #hyperparameter tuning
+            if "CatBoost" in name:
+                # Train Catboost manually
+                model.fit(X_train, y_train)
+                best_model = model
+        
+            else:
+                # hyperparameter tuning
+                gs = GridSearchCV(model, params, cv=3)
+                gs.fit(X_train, y_train)
+                best_model = gs.best_estimator_
+        
+        
+           
+            # Train
+           # model.fit(X_train, y_train)
+
+            # Predict using Best Model
+            y_train_pred = best_model.predict(X_train)
+            y_test_pred = best_model.predict(X_test)
 
             # Score
             test_model_score = r2_score(y_test, y_test_pred)
 
-            # Save score
+            # Save score + best model
             report[name] = test_model_score
+            best_models[name] = best_model
 
-        return report
+        return report, best_models
 
     except Exception as e:
         raise CustomException(e, sys)
     
-    except Exception as e:
-        raise CustomException(e,sys)
-           
+    
